@@ -18,6 +18,9 @@ bool niribar_load_config(struct swaybar_config *config,
 static bool write_all(int fd, const char *data, size_t length) {
 	while (length) {
 		ssize_t written = write(fd, data, length);
+		if (written == 0) {
+			return false;
+		}
 		if (written < 0) {
 			if (errno == EINTR) {
 				continue;
@@ -39,6 +42,9 @@ static char *read_line(int fd) {
 	for (;;) {
 		char c;
 		ssize_t count = read(fd, &c, 1);
+		if (count < 0 && errno == EINTR) {
+			continue;
+		}
 		if (count <= 0) {
 			free(line);
 			return NULL;
@@ -68,8 +74,16 @@ static bool send_request(int fd, json_object *request) {
 
 static json_object *member(json_object *object, const char *name) {
 	json_object *value = NULL;
-	json_object_object_get_ex(object, name, &value);
+	if (object && json_object_is_type(object, json_type_object)) {
+		json_object_object_get_ex(object, name, &value);
+	}
 	return value;
+}
+
+static bool typed_member(json_object *object, const char *name,
+		enum json_type type, json_object **value) {
+	*value = member(object, name);
+	return *value && json_object_is_type(*value, type);
 }
 
 void ipc_send_workspace_command(struct swaybar *bar, const char *workspace) {
@@ -215,29 +229,39 @@ static void update_workspace_flag(uint64_t id, const char *flag, bool value) {
 	}
 }
 
-bool handle_ipc_readable(struct swaybar *bar) {
-	char *line = read_line(bar->ipc_event_socketfd);
-	if (!line) {
-		return false;
-	}
+bool niribar_handle_event(const char *line) {
 	json_object *event = json_tokener_parse(line);
-	free(line);
-	if (!event) {
+	if (!event || !json_object_is_type(event, json_type_object)) {
+		json_object_put(event);
 		return false;
 	}
 
-	json_object *payload;
+	json_object *payload, *value;
 	if ((payload = member(event, "WorkspacesChanged"))) {
-		json_object *next = member(payload, "workspaces");
+		json_object *next;
+		if (!typed_member(payload, "workspaces", json_type_array, &next)) {
+			json_object_put(event);
+			return false;
+		}
 		json_object_get(next);
 		json_object_put(workspaces);
 		workspaces = next;
 	} else if ((payload = member(event, "WorkspaceUrgencyChanged"))) {
+		if (!typed_member(payload, "id", json_type_int, &value)
+				|| !typed_member(payload, "urgent", json_type_boolean, &value)) {
+			json_object_put(event);
+			return false;
+		}
 		update_workspace_flag(
 				json_object_get_uint64(member(payload, "id")),
 				"is_urgent",
 				json_object_get_boolean(member(payload, "urgent")));
 	} else if ((payload = member(event, "WorkspaceActivated"))) {
+		if (!typed_member(payload, "id", json_type_int, &value)
+				|| !typed_member(payload, "focused", json_type_boolean, &value)) {
+			json_object_put(event);
+			return false;
+		}
 		uint64_t id = json_object_get_uint64(member(payload, "id"));
 		bool focused = json_object_get_boolean(member(payload, "focused"));
 		json_object *target_output = NULL;
@@ -270,6 +294,19 @@ bool handle_ipc_readable(struct swaybar *bar) {
 	}
 
 	json_object_put(event);
+	return true;
+}
+
+bool handle_ipc_readable(struct swaybar *bar) {
+	char *line = read_line(bar->ipc_event_socketfd);
+	if (!line) {
+		return false;
+	}
+	bool handled = niribar_handle_event(line);
+	free(line);
+	if (!handled) {
+		return false;
+	}
 	ipc_get_workspaces(bar);
 	return true;
 }

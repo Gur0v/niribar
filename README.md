@@ -5,8 +5,10 @@ rendering and i3bar status protocol, replacing sway IPC with niri IPC.
 
 ## Build
 
-The `sway` checkout must be next to this directory. Required development
-packages are Wayland, wayland-protocols, Cairo, Pango, and json-c.
+The `sway` checkout must be next to this directory. This version is tested
+with sway commit `edcc4b0ed0b8a478f469409ef4b67917256388ec`; set `SWAY` when
+using another location. Required development packages are Wayland,
+wayland-protocols, Cairo, Pango, and json-c.
 
 ```sh
 make
@@ -34,4 +36,5 @@ Config lookup order is `--config`, `$NIRIBAR_CONFIG`,
 `$XDG_CONFIG_HOME/niribar/config`, `~/.config/niribar/config`,
 `~/.niribarrc`, then `/etc/xdg/niribar/config`.
 
-The reused sway sources are MIT-licensed; see the adjacent sway checkout.
+niribar is GPL-3.0; see `LICENSE`. The sway sources used during compilation
+remain under sway's MIT license; see the adjacent sway checkout.
