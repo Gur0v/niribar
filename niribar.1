@@ -1,0 +1,170 @@
+.TH NIRIBAR 1 "2026-07-02" "niribar 0.1" "User Commands"
+.SH NAME
+niribar \- an i3bar status-protocol bar for niri
+.SH SYNOPSIS
+.B niribar
+.RB [ \-d ]
+.RB [ \-s
+.IR socket ]
+.RB [ \-f
+.IR config ]
+.RB [ \-b
+.IR bar-id ]
+.RB [ \-c
+.IR command ]
+.SH DESCRIPTION
+.B niribar
+draws a workspace and status bar for the niri compositor.
+It uses swaybar's Wayland renderer and understands the i3bar status protocol,
+while workspace state and actions come from niri's IPC socket.
+.PP
+Run niribar inside an existing niri session.  With no configuration file it
+uses the familiar swaybar defaults: a bar at the bottom, workspace buttons on
+the left, and no status command.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Print a short usage message and exit.
+.TP
+.BR \-v ", " \-\-version
+Print the version and exit.
+.TP
+.BR \-d ", " \-\-debug
+Enable debug logging.
+.TP
+.BR \-s ", " \-\-socket " " \fIsocket\fR
+Connect to this niri IPC socket instead of
+.BR NIRI_SOCKET .
+.TP
+.BR \-f ", " \-\-config " " \fIconfig\fR
+Read bar configuration from
+.IR config .
+This takes precedence over the normal search path.
+.TP
+.BR \-b ", " \-\-bar-id " " \fIbar-id\fR
+Select the named
+.B bar
+block when the configuration contains more than one.  Without this option,
+the first block is used.  In a named block, place
+.B id
+before the settings that belong to it.
+.TP
+.BR \-c ", " \-\-status-command " " \fIcommand\fR
+Run
+.I command
+through
+.BR sh (1)
+and show its output on the right.  This overrides
+.B status_command
+from the configuration file.
+.SH CONFIGURATION
+The configuration parser accepts a subset of i3
+.B bar
+block syntax:
+.PP
+.EX
+bar {
+    position top
+    font pango:DejaVu Sans Mono 10
+    status_command i3status
+
+    colors {
+        background #000000
+        statusline #ffffff
+        focused_workspace #4c7899 #285577 #ffffff
+    }
+}
+.EE
+.PP
+niribar looks for a configuration in this order:
+.IP 1. 3
+The path passed with
+.BR \-\-config .
+.IP 2. 3
+.BR NIRIBAR_CONFIG .
+.IP 3. 3
+.IR $XDG_CONFIG_HOME/niribar/config .
+.IP 4. 3
+.IR ~/.config/niribar/config .
+.IP 5. 3
+.IR ~/.niribarrc .
+.IP 6. 3
+.IR /etc/xdg/niribar/config .
+.PP
+The following settings are applied:
+.BR status_command ,
+.BR mode ,
+.BR hidden_state ,
+.BR position ,
+.BR output ,
+.BR font ,
+.BR separator_symbol ,
+.BR workspace_buttons ,
+.BR workspace_min_width ,
+.BR strip_workspace_numbers ,
+.BR strip_workspace_name ,
+.BR binding_mode_indicator ,
+.BR bindsym ,
+.BR height ,
+and
+.BR colors .
+.PP
+An
+.B output
+value must be an exact niri output name; i3's
+.B primary
+and
+.B nonprimary
+aliases have no special meaning.  The
+.B padding
+directive is accepted, but currently sets layer-surface margins rather than
+i3bar content padding.
+.PP
+For mouse bindings,
+.B nop
+is ignored and the i3
+.B exec
+prefix is stripped.  The remaining command is run by
+.BR sh (1).
+.PP
+For source-file compatibility,
+.BR i3bar_command ,
+.BR workspace_command ,
+.BR tray_output ,
+.BR tray_padding ,
+and
+.B modifier
+are accepted but have no effect.  niribar does not provide a system tray.
+.SH ENVIRONMENT
+.TP
+.B NIRI_SOCKET
+Path to niri's IPC socket.  Set automatically by niri.
+.TP
+.B NIRIBAR_CONFIG
+Configuration path used when
+.B \-\-config
+is not given.
+.TP
+.B XDG_CONFIG_HOME
+Base directory for per-user configuration.  If unset,
+.I ~/.config
+is checked directly.
+.TP
+.B HOME
+Used for the fallback configuration paths.
+.SH EXAMPLES
+Start with the first configured bar:
+.PP
+.EX
+niribar
+.EE
+.PP
+Use a particular bar block and status command:
+.PP
+.EX
+niribar --config ~/.config/niribar/config --bar-id laptop
+.EE
+.SH SEE ALSO
+.BR niri (1),
+.BR i3status (1),
+.BR swaybar-protocol (7)
